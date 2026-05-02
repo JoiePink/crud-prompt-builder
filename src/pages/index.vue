@@ -76,7 +76,6 @@ async function handleCopyGeneratedCode() {
         ref="queryFormRef"
         :model="queryParams"
         :inline="true"
-        label-width="150px"
       >
         <el-form-item label="Skill Markdown Name" prop="name">
           <el-select
