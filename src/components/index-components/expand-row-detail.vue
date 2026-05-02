@@ -32,10 +32,10 @@ const DEFAULT_TABLE_SHOW_TYPE: TableParamsRow['showType'] = 'text'
 
 const form = ref<ExpandRowDetailForm>({
   isNeedElTable: '1', // 1 需要，0 不需要
-  tableRowColumnCount: 2,
+  tableRowColumnCount: 4,
   tableData: [],
   isNeedElDescriptions: '1',
-  descriptionsRowColumnCount: 2,
+  descriptionsRowColumnCount: 4,
   descriptionsData: [],
 })
 
@@ -162,8 +162,86 @@ const rules = ref<FormRules<ExpandRowDetailForm>>({
   ],
 })
 
+/** 与 list-page-pagination-query 中 buildTableParamsExport 一致：按 showType 省略无关与空值 */
+function buildTableParamsExport(row: TableParamsRow): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    paramEn: row.paramEn,
+    paramZh: row.paramZh,
+    showType: row.showType,
+  }
+
+  const st = row.showType
+
+  if (st === 'el-tag') {
+    if (row.iconName.trim()) {
+      base.iconName = row.iconName.trim()
+    }
+    if (row.elTagTheme && row.elTagTheme !== 'primary') {
+      base.elTagTheme = row.elTagTheme
+    }
+  }
+
+  if (st === 'dict-tag' && row.dictName.trim()) {
+    base.dictName = row.dictName.trim()
+  }
+
+  if (st === 'el-switch') {
+    if (row.switchOnColor.trim()) {
+      base.switchOnColor = row.switchOnColor.trim()
+    }
+    if (row.switchOffColor.trim()) {
+      base.switchOffColor = row.switchOffColor.trim()
+    }
+    if (row.switchActiveValue.trim()) {
+      base.switchActiveValue = row.switchActiveValue.trim()
+    }
+    if (row.switchActiveText.trim()) {
+      base.switchActiveText = row.switchActiveText.trim()
+    }
+    if (row.switchInactiveValue.trim()) {
+      base.switchInactiveValue = row.switchInactiveValue.trim()
+    }
+    if (row.switchInactiveText.trim()) {
+      base.switchInactiveText = row.switchInactiveText.trim()
+    }
+  }
+
+  return base
+}
+
+/** 与 `05-expand-row-detail` SKILL 默认列数（4）及表单初始值一致；用于「相等则省略导出」 */
+const DEFAULT_ROW_COLUMN_COUNT = 4
+
+/** 导出：省略「需要」默认值与初始列数 2，表格/描述行按展示类型精简 */
+function buildExpandRowDetailExport(): Record<string, unknown> {
+  const f = form.value
+  const payload: Record<string, unknown> = {}
+
+  if (f.isNeedElTable === '0') {
+    payload.isNeedElTable = '0'
+  }
+  else {
+    if (f.tableRowColumnCount !== DEFAULT_ROW_COLUMN_COUNT) {
+      payload.tableRowColumnCount = f.tableRowColumnCount
+    }
+    payload.tableData = f.tableData.map(buildTableParamsExport)
+  }
+
+  if (f.isNeedElDescriptions === '0') {
+    payload.isNeedElDescriptions = '0'
+  }
+  else {
+    if (f.descriptionsRowColumnCount !== DEFAULT_ROW_COLUMN_COUNT) {
+      payload.descriptionsRowColumnCount = f.descriptionsRowColumnCount
+    }
+    payload.descriptionsData = f.descriptionsData.map(buildTableParamsExport)
+  }
+
+  return payload
+}
+
 defineExpose({
-  getFormData: () => ({ ...form.value }),
+  getFormData: () => buildExpandRowDetailExport(),
   validate: () => formRef.value?.validate(),
 })
 </script>

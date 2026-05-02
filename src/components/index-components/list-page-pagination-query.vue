@@ -42,6 +42,10 @@ const form = ref({
   tableParamsData: [] as TableParamsRow[],
   needExport: '1' as '1' | '0',
   needPagination: '1' as '1' | '0',
+  /** Ruoyi v-hasPermi：列表/查询，如 system:goods:list */
+  listPermi: '',
+  /** 导出按钮，如 system:goods:export */
+  exportPermi: '',
 })
 
 // Total:查询参数表单验证规则
@@ -173,44 +177,110 @@ function handleDeleteTableRow(index: number) {
   form.value.tableParamsData.splice(index, 1)
 }
 
-// Part2: 生成前按 showType 清洗无关字段
-function sanitizeTableRowByShowType(row: TableParamsRow): TableParamsRow {
-  const sanitized: TableParamsRow = { ...row }
-
-  if (sanitized.showType !== 'el-tag') {
-    sanitized.iconName = ''
-    sanitized.elTagTheme = ''
-  }
-  else if (!sanitized.elTagTheme) {
-    sanitized.elTagTheme = 'primary'
+/** 导出查询参数行：去掉无关项与空值默认 */
+function buildQueryParamsExport(row: QueryParamsRow): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    paramEn: row.paramEn,
+    paramZh: row.paramZh,
+    queryType: row.queryType,
   }
 
-  if (sanitized.showType !== 'dict-tag') {
-    sanitized.dictName = ''
+  if (row.operateType === '1') {
+    base.operateType = '1'
+    if (row.dictName.trim()) {
+      base.dictName = row.dictName.trim()
+    }
+  }
+  else if (row.operateType === '2') {
+    base.operateType = '2'
+    if (row.timeParamCount > 0) {
+      base.timeParamCount = row.timeParamCount
+    }
+    if (row.timeParamCount >= 1 && row.timeParam1.trim()) {
+      base.timeParam1 = row.timeParam1.trim()
+    }
+    if (row.timeParamCount === 2 && row.timeParam2.trim()) {
+      base.timeParam2 = row.timeParam2.trim()
+    }
   }
 
-  if (sanitized.showType !== 'el-switch') {
-    sanitized.switchOnColor = ''
-    sanitized.switchOffColor = ''
-    sanitized.switchActiveValue = ''
-    sanitized.switchActiveText = ''
-    sanitized.switchInactiveValue = ''
-    sanitized.switchInactiveText = ''
-  }
-
-  return sanitized
+  return base
 }
 
-// Part2: 对外暴露当前模块数据（包含生成前清洗）
-function getFormData() {
-  return {
-    ...form.value,
-    tableParamsData: form.value.tableParamsData.map(sanitizeTableRowByShowType),
+/** 导出表格列参数行：按 showType 只保留有意义字段，省略空串与默认 theme */
+function buildTableParamsExport(row: TableParamsRow): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    paramEn: row.paramEn,
+    paramZh: row.paramZh,
+    showType: row.showType,
   }
+
+  const st = row.showType
+
+  if (st === 'el-tag') {
+    if (row.iconName.trim()) {
+      base.iconName = row.iconName.trim()
+    }
+    if (row.elTagTheme && row.elTagTheme !== 'primary') {
+      base.elTagTheme = row.elTagTheme
+    }
+  }
+
+  if (st === 'dict-tag' && row.dictName.trim()) {
+    base.dictName = row.dictName.trim()
+  }
+
+  if (st === 'el-switch') {
+    if (row.switchOnColor.trim()) {
+      base.switchOnColor = row.switchOnColor.trim()
+    }
+    if (row.switchOffColor.trim()) {
+      base.switchOffColor = row.switchOffColor.trim()
+    }
+    if (row.switchActiveValue.trim()) {
+      base.switchActiveValue = row.switchActiveValue.trim()
+    }
+    if (row.switchActiveText.trim()) {
+      base.switchActiveText = row.switchActiveText.trim()
+    }
+    if (row.switchInactiveValue.trim()) {
+      base.switchInactiveValue = row.switchInactiveValue.trim()
+    }
+    if (row.switchInactiveText.trim()) {
+      base.switchInactiveText = row.switchInactiveText.trim()
+    }
+  }
+
+  return base
+}
+
+/** 对外导出：与 list-page-add-edit 一致，省略默认与无关字段 */
+function getFormData(): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    queryParamsData: form.value.queryParamsData.map(buildQueryParamsExport),
+    tableParamsData: form.value.tableParamsData.map(buildTableParamsExport),
+  }
+
+  if (form.value.needExport !== '1') {
+    payload.needExport = form.value.needExport
+  }
+  if (form.value.needPagination !== '1') {
+    payload.needPagination = form.value.needPagination
+  }
+
+  if (form.value.listPermi.trim()) {
+    payload.listPermi = form.value.listPermi.trim()
+  }
+  if (form.value.exportPermi.trim()) {
+    payload.exportPermi = form.value.exportPermi.trim()
+  }
+
+  return payload
 }
 
 defineExpose({
   getFormData,
+  validate: () => formRef.value?.validate(),
 })
 </script>
 
@@ -355,7 +425,7 @@ defineExpose({
                           <el-button
                             type="warning"
                             link
-                            icon="CircleClose"
+                            :icon="CircleClose"
                             @click="handleCancelOperate(scopeRow.row)"
                           />
                         </el-tooltip>
@@ -568,6 +638,24 @@ defineExpose({
                   </template>
                 </el-table-column>
               </el-table>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="列表查询权限字符" prop="listPermi">
+              <el-input
+                v-model="form.listPermi"
+                clearable
+                placeholder="如 system:goods:list，写入 v-hasPermi"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="导出权限字符" prop="exportPermi">
+              <el-input
+                v-model="form.exportPermi"
+                clearable
+                placeholder="如 system:goods:export；无导出可留空"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
